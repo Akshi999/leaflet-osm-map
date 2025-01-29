@@ -3,31 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Maps App (OpenStreetMap)</title>
+    <title>Interactive Map - OpenStreetMap + Leaflet.js</title>
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <!-- Leaflet Search Plugin CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
+    <!-- Custom Styles -->
     <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f4f4f4;
+        }
         #map {
-            height: 100vh;
+            height: 100%;
             width: 100%;
+        }
+        .search-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: 300px;
+            padding: 8px;
+            border-radius: 20px;
+            border: 2px solid #ddd;
+            font-size: 16px;
+        }
+        .map-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        .map-controls button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .map-controls button:hover {
+            background-color: #0056b3;
+        }
+        .map-controls button:active {
+            background-color: #004085;
         }
     </style>
 </head>
 <body>
+
+    <!-- Search Bar -->
+    <input id="search-bar" class="search-bar" type="text" placeholder="Search for a location" />
+
+    <!-- Map Div -->
     <div id="map"></div>
-    
+
+    <!-- Map Control Buttons -->
+    <div class="map-controls">
+        <button id="geolocation-btn">Use My Location</button>
+        <button id="clear-markers-btn">Clear Markers</button>
+        <button id="draw-btn">Enable Drawing</button>
+    </div>
+
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
     <script>
-        var map = L.map('map').setView([51.505, -0.09], 13); // Coordinates for London, adjust for your location
-        
-        // Add OpenStreetMap tiles (free and open-source)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-        
-        // Add a marker on the map
-        L.marker([51.5, -0.09]).addTo(map)
-            .bindPopup("<b>Hello world!</b><br>I am a popup.")
-            .openPopup();
+        let map, searchControl, geolocationMarker, markersLayer, drawControl;
+        const defaultCenter = [51.505, -0.09]; // Coordinates for London
+
+        // Initialize the map
+        function initMap() {
+            map = L.map('map').setView(defaultCenter, 13);
+            
+            // Add OpenStreetMap tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Initialize marker layer (for user-added markers)
+            markersLayer = L.layerGroup().addTo(map);
+
+            // Add geocoder control for searching locations
+            searchControl = L.Control.geocoder().addTo(map);
+
+            // Geolocation functionality
+            map.on('locationfound', function(e) {
+                if (geolocationMarker) {
+                    map.removeLayer(geolocationMarker);
+                }
+                geolocationMarker = L.marker(e.latlng).addTo(map)
+                    .bindPopup("You are here!").openPopup();
+                map.setView(e.latlng, 13);
+            });
+
+            map.on('locationerror', function() {
+                alert('Location access denied or failed.');
+            });
+        }
+
+        // Use current location (button)
+        document.getElementById('geolocation-btn').onclick = function() {
+            map.locate({setView: true, maxZoom: 16});
+        }
+
+        // Clear all markers from the map
+        document.getElementById('clear-markers-btn').onclick = function() {
+            markersLayer.clearLayers();
+        }
+
+        // Enable or disable drawing mode
+        let drawControlActive = false;
+        document.getElementById('draw-btn').onclick = function() {
+            if (drawControlActive) {
+                map.removeControl(drawControl);
+                drawControlActive = false;
+            } else {
+                drawControl.addTo(map);
+                drawControlActive = true;
+            }
+        }
+
+        // Draw feature configuration
+        const drawOptions = {
+            position: 'topleft',
+            draw: {
+                polygon: true,
+                polyline: true,
+                rectangle: true,
+                circle: true,
+                marker: true
+            }
+        };
+
+        // Initialize drawing control
+        drawControl = new L.Control.Draw(drawOptions);
+
+        // Add markers to map when drawing is completed
+        map.on(L.Draw.Event.CREATED, function(event) {
+            const layer = event.layer;
+            markersLayer.addLayer(layer);
+        });
+
+        // Add search functionality to the search bar
+        const searchBar = document.getElementById('search-bar');
+        searchBar.addEventListener('input', function(event) {
+            const query = event.target.value;
+            if (query.length > 3) {
+                searchControl.search(query);
+            }
+        });
+
+        // Initialize map
+        initMap();
     </script>
 </body>
 </html>
